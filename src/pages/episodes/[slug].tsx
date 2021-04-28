@@ -1,12 +1,12 @@
 import { GetStaticPaths, GetStaticProps } from 'next';
-import { useRouter } from 'next/router';
 import { api } from '../../services/api';
 import { format, parseISO } from "date-fns";
 import ptBR from 'date-fns/locale/pt-BR';
-import { convertDurationtoTimeString } from '../../utils/convertDurationtoTimeString';
+import { convertDurationToTimeString } from '../../utils/convertDurationtoTimeString';
 import styles from './episode.module.scss';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePlayer } from '../../contexts/PlayerContext';
 //localhost/3333/episodes/[slug]
 
 type Episode ={
@@ -25,7 +25,7 @@ type EpisodeProps= {
 }
 
 export default function Episode({episode}: EpisodeProps) {
-    const router = useRouter();
+    const { play } = usePlayer();
     return (
         <div className={styles.episode}>
             <div className={styles.thumbnailContainer}>
@@ -40,7 +40,7 @@ export default function Episode({episode}: EpisodeProps) {
                     src={episode.thumbnail} 
                     objectFit="cover"
                 />
-                <button type="button">
+                <button type="button" onClick={() => play(episode)}>
                     <img src="/play.svg" alt="Tocar episódio"/>
                 </button>
             </div>
@@ -60,8 +60,22 @@ export default function Episode({episode}: EpisodeProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
+    const { data } = await api.get('episodes',{
+        params: {
+          _limit:2,
+          _sort: 'published_at',
+          _order: 'desc'
+        }
+    })
+    const paths = data.map(episode=>{
+        return{
+            params: {
+                slug: episode.id
+            }
+        }
+    })
     return {
-        paths:[],
+        paths,
         fallback: 'blocking'
     }
 }
@@ -76,7 +90,7 @@ export const getStaticProps: GetStaticProps = async(ctx) => {
         members: data.members,
         publishedAt: format(parseISO(data.published_at), 'd MMM yy', { locale: ptBR}),   //data convertido
         duration: Number(data.file.duration),
-        durationAsString: convertDurationtoTimeString(Number(data.file.duration)),
+        durationAsString: convertDurationToTimeString(Number(data.file.duration)),
         description: data.description,
         url: data.file.url,
     }
